@@ -1,17 +1,26 @@
+extern crate pkg_config;
+
 use std::env;
 use std::process::Command;
 use std::path::*;
 use std::str::*;
 use std::fs;
+use pkg_config::*;
 
 fn is_dylib() -> bool {
     option_env!("DyLib_DOtherSide").is_some()
 }
 
+fn is_msys() -> bool {
+    option_env!("MSYSTEM").is_some()
+}
+
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let out_dir = env::var("OUT_DIR").unwrap();
-    fs::copy(Path::new(&manifest_dir).join("build_lib.sh"), Path::new(&out_dir).join("build_lib.sh")).unwrap();
+    fs::copy(Path::new(&manifest_dir).join("build_lib.sh"),
+             Path::new(&out_dir).join("build_lib.sh"))
+        .unwrap();
     // Probably should unify this code
     let output = if is_dylib() {
         Command::new("sh")
@@ -47,15 +56,32 @@ fn main() {
 
     let target = env::var("TARGET").expect("Environment variable TARGET not set");
 
-    let osx_framework = if target.contains("darwin") { "=framework" }
-                        else  { "" };
-    // On Linux, libraries are named "Qt5Core", not "QtCore" as on OSX
-    let linux_qt_lib_ver = if target.contains("linux") { "5" }
-                           else  { "" };
+    let osx_framework = if target.contains("darwin") {
+        "=framework"
+    } else {
+        ""
+    };
+    // On Linux and MSYS, libraries are named "Qt5Core", not "QtCore" as on OSX
+    let linux_qt_lib_ver = if target.contains("linux") || is_msys() {
+        "5"
+    } else {
+        ""
+    };
 
     const QT_PLUGINS: [&'static str; 5] = ["Core", "Gui", "Qml", "Quick", "Widgets"];
+    if is_msys() {
+        Config::new()
+            .probe(&QT_PLUGINS.iter()
+                              .map(|v| format!("Qt5{}", v))
+                              .collect::<Vec<String>>()
+                              .join(" "))
+            .unwrap();
+    }
     for plugin in &QT_PLUGINS {
-        println!("cargo:rustc-link-lib{}=Qt{}{}", osx_framework, linux_qt_lib_ver, plugin);
+        println!("cargo:rustc-link-lib{}=Qt{}{}",
+                 osx_framework,
+                 linux_qt_lib_ver,
+                 plugin);
     }
 }
 

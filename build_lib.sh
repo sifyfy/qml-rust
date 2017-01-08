@@ -8,7 +8,7 @@ mkdir build
 cd build
 
 if [ "$MSYSTEM" != "" ]; then
-    cmake -G"MSYS Makefiles" ..
+    cmake -G"MSYS Makefiles" -D CMAKE_CXX_FLAGS:STRING="-D_GLIBCXX_USE_CXX11_ABI=0" ..
     if [ "$IS_DYLIB" != "" ]; then
         make DOtherSide_autogen
     else
